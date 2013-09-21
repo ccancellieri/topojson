@@ -1,0 +1,3 @@
+Change log:
+[20130921 v0.0.1]
+1. Decode geometries from topojson.
