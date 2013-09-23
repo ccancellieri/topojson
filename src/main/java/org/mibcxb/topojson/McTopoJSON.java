@@ -12,6 +12,11 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LinearRing;
 
+/**
+ * 
+ * @author chenxb
+ * @version 1
+ */
 public class McTopoJSON {
     private ITopoJSONHandler handler;
 
@@ -41,7 +46,7 @@ public class McTopoJSON {
         if (handler != null) {
             Topology topology = handler.decode(topojson);
             if (topology != null) {
-                return parseFromTopology(topology, factory);
+                return fromTopology(topology, factory);
             }
         }
         return null;
@@ -52,7 +57,7 @@ public class McTopoJSON {
         if (handler != null) {
             Topology topology = handler.decode(reader);
             if (topology != null) {
-                return parseFromTopology(topology, factory);
+                return fromTopology(topology, factory);
             }
         }
         return null;
@@ -60,12 +65,15 @@ public class McTopoJSON {
 
     public String encode(List<Geometry> list) throws McException {
         if (handler != null) {
-            // TODO
+            Topology topology = toTopology(list);
+            if (topology != null) {
+                return handler.encode(topology);
+            }
         }
         return null;
     }
 
-    public static List<Geometry> parseFromTopology(Topology topology,
+    public List<Geometry> fromTopology(Topology topology,
             GeometryFactory factory) throws McException {
         if (topology == null) {
             return null;
@@ -80,7 +88,7 @@ public class McTopoJSON {
         Transform transform = topology.getTransform();
 
         int[][][] arcs = topology.getArcs();
-        List<Coordinate[]> coordArcs = transformArcs(transform, arcs);
+        List<Coordinate[]> coordArcs = decodeArcs(transform, arcs);
 
         HashMap<String, TopoObject> objects = topology.getObjects();
 
@@ -89,7 +97,7 @@ public class McTopoJSON {
             geometries = new ArrayList<Geometry>();
             for (String name : objects.keySet()) {
                 TopoObject object = objects.get(name);
-                geometries.add(parseFromObject(object, transform, coordArcs,
+                geometries.add(decodeTopoObject(object, transform, coordArcs,
                         factory));
             }
         } catch (Exception e) {
@@ -98,24 +106,21 @@ public class McTopoJSON {
         return geometries;
     }
 
-    private static Geometry parseFromObject(TopoObject object,
-            Transform transform, List<Coordinate[]> coordArcs,
-            GeometryFactory factory) {
+    private Geometry decodeTopoObject(TopoObject object, Transform transform,
+            List<Coordinate[]> coordArcs, GeometryFactory factory) {
         if (object == null || transform == null) {
             return null;
         }
 
         String type = object.getType();
         Geometry geometry = null;
-        if ("Point".equals(type)) {
+        if (GeomType.Point.name.equals(type)) {
             int[] position = object.getCoordinates();
-            Coordinate coordinate = transformCoordinate(transform, position);
+            Coordinate coordinate = decodePosition(transform, position);
             if (coordinate != null) {
                 geometry = factory.createPoint(coordinate);
             }
-        } else if ("MultiPoint".equals(type)) {
-            // TODO
-        } else if ("LineString".equals(type)) {
+        } else if (GeomType.LineString.name.equals(type)) {
             Object[] arcs = object.getArcs();
             if (arcs != null) {
                 for (int i = 0; i < arcs.length; i++) {
@@ -127,67 +132,73 @@ public class McTopoJSON {
                     geometry = factory.createLineString(arc);
                 }
             }
-        } else if ("MultiLineString".equals(type)) {
-            // TODO
-        } else if ("Polygon".equals(type)) {
+        } else if (GeomType.Polygon.name.equals(type)) {
             Object[] arcs = object.getArcs();
-            if (arcs != null) {
-                if (arcs.length == 1) {
-                    List<Double> indexes = (ArrayList<Double>) arcs[0];
-                    for (int i = 0; i < indexes.size(); i++) {
-                        int index = (int) Math.round((Double) indexes.get(i));
-                        if (index < 0) {
-                            index += coordArcs.size();
-                        }
-                        Coordinate[] arc = coordArcs.get(index);
-                        LinearRing shell = factory.createLinearRing(arc);
-                        if (shell != null && shell.isValid()) {
-                            geometry = factory.createPolygon(shell);
-                        }
-                    }
-                } else {
-                    LinearRing shell = null;
-                    List<Double> shellIndex = (ArrayList<Double>) arcs[0];
+            if (arcs != null && arcs.length >= 1) {
+                LinearRing shell = null;
+                if (arcs[0] instanceof List<?>) {
+                    List<?> shellIndex = (List<?>) arcs[0];
                     for (int i = 0; i < shellIndex.size(); i++) {
-                        int index = (int) Math
-                                .round((Double) shellIndex.get(i));
-                        if (index < 0) {
-                            index += coordArcs.size();
+                        if (shellIndex.get(i) instanceof Double) {
+                            Integer index = object2Integer(shellIndex.get(i));
+                            if (index != null) {
+                                if (index < 0) {
+                                    index += coordArcs.size();
+                                }
+                                Coordinate[] arc = coordArcs.get(index);
+                                shell = factory.createLinearRing(arc);
+                            }
                         }
-                        Coordinate[] arc = coordArcs.get(index);
-                        shell = factory.createLinearRing(arc);
                     }
+                }
 
-                    LinearRing[] holes = new LinearRing[arcs.length - 1];
+                LinearRing[] holes = null;
+                int holeCount = arcs.length - 1;
+                if (holeCount > 0) {
+                    holes = new LinearRing[holeCount];
                     for (int i = 1; i < arcs.length; i++) {
                         LinearRing hole = null;
-                        List<Double> holeIndex = (ArrayList<Double>) arcs[i];
-                        for (int j = 0; j < holeIndex.size(); j++) {
-                            int index = (int) Math.round((Double) holeIndex
-                                    .get(j));
-                            if (index < 0) {
-                                index += coordArcs.size();
+                        if (arcs[i] instanceof List<?>) {
+                            List<?> holeIndex = (List<?>) arcs[i];
+                            for (int j = 0; j < holeIndex.size(); j++) {
+                                if (holeIndex.get(j) instanceof Double) {
+                                    Integer index = object2Integer(holeIndex
+                                            .get(j));
+                                    if (index != null) {
+                                        if (index < 0) {
+                                            index += coordArcs.size();
+                                        }
+                                        Coordinate[] arc = coordArcs.get(index);
+                                        hole = factory.createLinearRing(arc);
+                                        holes[i - 1] = hole;
+                                    }
+                                }
                             }
-                            Coordinate[] arc = coordArcs.get(index);
-                            hole = factory.createLinearRing(arc);
-                            holes[i - 1] = hole;
                         }
                     }
+                }
 
-                    if (shell != null && shell.isValid() && holes != null) {
+                if (shell != null) {
+                    if (holes != null) {
                         geometry = factory.createPolygon(shell, holes);
+                    } else {
+                        geometry = factory.createPolygon(shell);
                     }
                 }
             }
-        } else if ("MultiPolygon".equals(type)) {
+        } else if (GeomType.MultiPoint.name.equals(type)) {
             // TODO
-        } else if ("GeometryCollection".equals(type)) {
+        } else if (GeomType.MultiLineString.name.equals(type)) {
+            // TODO
+        } else if (GeomType.MultiPolygon.name.equals(type)) {
+            // TODO
+        } else if (GeomType.GeometryCollection.name.equals(type)) {
             TopoObject[] subs = object.getGeometries();
             Geometry[] geometries = null;
             if (subs != null) {
                 geometries = new Geometry[subs.length];
                 for (int i = 0; i < geometries.length; i++) {
-                    geometries[i] = parseFromObject(subs[i], transform,
+                    geometries[i] = decodeTopoObject(subs[i], transform,
                             coordArcs, factory);
                 }
             }
@@ -202,8 +213,7 @@ public class McTopoJSON {
         return geometry;
     }
 
-    private static Coordinate transformCoordinate(Transform transform,
-            int[] posision) {
+    private Coordinate decodePosition(Transform transform, int[] posision) {
         if (transform == null || posision == null) {
             return null;
         }
@@ -219,8 +229,7 @@ public class McTopoJSON {
         return new Coordinate(x, y);
     }
 
-    private static List<Coordinate[]> transformArcs(Transform transform,
-            int[][][] arcs) {
+    private List<Coordinate[]> decodeArcs(Transform transform, int[][][] arcs) {
         if (transform == null || arcs == null) {
             return null;
         }
@@ -243,4 +252,31 @@ public class McTopoJSON {
         return coordList;
     }
 
+    public Topology toTopology(List<Geometry> list) {
+        return null;
+    }
+
+    public static Integer object2Integer(Object obj) {
+        Integer value = null;
+        if (obj instanceof Integer) {
+            value = (Integer) obj;
+        } else if (obj instanceof Long) {
+            value = ((Long) obj).intValue();
+        } else if (obj instanceof Float) {
+            Float f = (Float) obj;
+            value = Math.round(f);
+        } else if (obj instanceof Double) {
+            Double d = (Double) obj;
+            value = (int) Math.round(d);
+        } else if (obj instanceof String) {
+            String s = (String) obj;
+            try {
+                value = Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                e.printStackTrace();
+                value = null;
+            }
+        }
+        return value;
+    }
 }
