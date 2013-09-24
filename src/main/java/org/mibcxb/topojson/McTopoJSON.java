@@ -115,21 +115,29 @@ public class McTopoJSON {
         String type = object.getType();
         Geometry geometry = null;
         if (GeomType.Point.name.equals(type)) {
-            int[] position = object.getCoordinates();
-            Coordinate coordinate = decodePosition(transform, position);
-            if (coordinate != null) {
-                geometry = factory.createPoint(coordinate);
+            Object[] posArray = object.getCoordinates();
+            if (posArray != null) {
+                int[] position = new int[posArray.length];
+                for (int i = 0; i < position.length; i++) {
+                    position[i] = object2Integer(posArray[i]);
+                }
+                Coordinate coordinate = decodePosition(transform, position);
+                if (coordinate != null) {
+                    geometry = factory.createPoint(coordinate);
+                }
             }
         } else if (GeomType.LineString.name.equals(type)) {
             Object[] arcs = object.getArcs();
             if (arcs != null) {
                 for (int i = 0; i < arcs.length; i++) {
-                    int index = (int) Math.round((Double) arcs[i]);
-                    if (index < 0) {
-                        index += coordArcs.size();
+                    Integer index = object2Integer(arcs[i]);
+                    if (index != null) {
+                        if (index < 0) {
+                            index += coordArcs.size();
+                        }
+                        Coordinate[] arc = coordArcs.get(index);
+                        geometry = factory.createLineString(arc);
                     }
-                    Coordinate[] arc = coordArcs.get(index);
-                    geometry = factory.createLineString(arc);
                 }
             }
         } else if (GeomType.Polygon.name.equals(type)) {

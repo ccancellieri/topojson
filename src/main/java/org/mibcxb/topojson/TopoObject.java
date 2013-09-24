@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 public class TopoObject {
     private String type;
-    private int[] coordinates;
+    private Object[] coordinates;
     private Object[] arcs;
     private int id;
     private TopoObject[] geometries;
@@ -19,11 +19,11 @@ public class TopoObject {
         this.type = type;
     }
 
-    public int[] getCoordinates() {
+    public Object[] getCoordinates() {
         return coordinates;
     }
 
-    public void setCoordinates(int[] coordinates) {
+    public void setCoordinates(Object[] coordinates) {
         this.coordinates = coordinates;
     }
 

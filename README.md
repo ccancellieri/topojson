@@ -3,7 +3,7 @@ mibcxb's topojson
 
 The Java implementation of TopoJSON
 
-TopoJSON is an extension of GeoJSON that encodes topology.
+TopoJSON is an extension of GeoJSON that encodes topology.<br/>
 https://github.com/mbostock/topojson/wiki
 
 The TopoJSON Format Specification:<br/>
