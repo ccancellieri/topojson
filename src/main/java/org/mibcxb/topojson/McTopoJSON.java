@@ -147,15 +147,13 @@ public class McTopoJSON {
                 if (arcs[0] instanceof List<?>) {
                     List<?> shellIndex = (List<?>) arcs[0];
                     for (int i = 0; i < shellIndex.size(); i++) {
-                        if (shellIndex.get(i) instanceof Double) {
-                            Integer index = object2Integer(shellIndex.get(i));
-                            if (index != null) {
-                                if (index < 0) {
-                                    index += coordArcs.size();
-                                }
-                                Coordinate[] arc = coordArcs.get(index);
-                                shell = factory.createLinearRing(arc);
+                        Integer index = object2Integer(shellIndex.get(i));
+                        if (index != null) {
+                            if (index < 0) {
+                                index += coordArcs.size();
                             }
+                            Coordinate[] arc = coordArcs.get(index);
+                            shell = factory.createLinearRing(arc);
                         }
                     }
                 }
@@ -169,17 +167,14 @@ public class McTopoJSON {
                         if (arcs[i] instanceof List<?>) {
                             List<?> holeIndex = (List<?>) arcs[i];
                             for (int j = 0; j < holeIndex.size(); j++) {
-                                if (holeIndex.get(j) instanceof Double) {
-                                    Integer index = object2Integer(holeIndex
-                                            .get(j));
-                                    if (index != null) {
-                                        if (index < 0) {
-                                            index += coordArcs.size();
-                                        }
-                                        Coordinate[] arc = coordArcs.get(index);
-                                        hole = factory.createLinearRing(arc);
-                                        holes[i - 1] = hole;
+                                Integer index = object2Integer(holeIndex.get(j));
+                                if (index != null) {
+                                    if (index < 0) {
+                                        index += coordArcs.size();
                                     }
+                                    Coordinate[] arc = coordArcs.get(index);
+                                    hole = factory.createLinearRing(arc);
+                                    holes[i - 1] = hole;
                                 }
                             }
                         }
